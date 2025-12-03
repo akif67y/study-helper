@@ -3,5 +3,9 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
-  // We removed the 'define' block because we will use .env variables instead
+  base: '/',                     // ← add this line
+  build: {
+    outDir: 'dist',
+    sourcemap: true
+  }
 });
