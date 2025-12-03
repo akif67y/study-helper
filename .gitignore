@@ -1,0 +1,32 @@
+Logs
+
+logs
+.log
+npm-debug.log
+
+Runtime data
+
+pids
+*.pid
+*.seed
+*.pid.lock
+
+Dependencies
+
+node_modules/
+
+Build directory
+
+dist/
+
+Environment variables (CRITICAL: Keeps keys off GitHub)
+
+.env
+.env.local
+.env.*.local
+
+Editor directories
+
+.vscode/
+.idea/
+.DS_Store
