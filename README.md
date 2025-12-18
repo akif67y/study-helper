@@ -2,7 +2,7 @@
 
 A beautiful, dark-themed study companion app built with React and Firebase. Organize your learning materials, track problems, and store solutions — all in one place.
 I built it for a genuine need of problem tracker tool for my DSA and Database Lab exam preparation. I used to solve problems here and there from different platform 
-through the week but when I needed to review before online exam finding them again was a big hassle. This project solves this effictively.
+through the week.However, when I needed to review before online exam, finding them again was a big hassle. This project solves this effictively.
 
 
 ![DevStudy](https://img.shields.io/badge/React-19.2-61DAFB?style=flat&logo=react)
