@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Plus, Share2, BookOpen, Search } from 'lucide-react';
+import { Plus, Share2, BookOpen, Search, Trash2 } from 'lucide-react';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { useUnreadShareCount } from '../hooks/useSharing';
-import { useGroupDetail, useGroupSharedCourses, shareCourseToGroup, addMemberToGroup } from '../hooks/useGroups';
+import { useGroupDetail, useGroupSharedCourses, shareCourseToGroup, addMemberToGroup, deleteGroup } from '../hooks/useGroups';
 import { useAllDocs } from '../hooks/useFirestore';
 import { useUserSearch } from '../hooks/useUserProfile';
 import { NavBar } from '../components/ui/NavBar';
@@ -58,6 +58,19 @@ export const GroupDetailPage = ({ user, logout }) => {
         }
     };
 
+    const handleDeleteGroup = async () => {
+        if (!confirm('Are you sure you want to delete this group? This will remove all shared courses and cannot be undone.')) {
+            return;
+        }
+        try {
+            await deleteGroup(groupId);
+            navigate('/groups');
+        } catch (error) {
+            console.error('Error deleting group:', error);
+            alert('Failed to delete group');
+        }
+    };
+
     if (groupLoading) {
         return (
             <div className="min-h-screen">
@@ -66,6 +79,8 @@ export const GroupDetailPage = ({ user, logout }) => {
             </div>
         );
     }
+
+    const isCreator = group?.creatorId === user?.uid;
 
     return (
         <div className="min-h-screen">
@@ -78,6 +93,11 @@ export const GroupDetailPage = ({ user, logout }) => {
                 backText="Back to Groups"
                 rightContent={
                     <div className="flex gap-2">
+                        {isCreator && (
+                            <Button onClick={handleDeleteGroup} variant="danger" icon={Trash2}>
+                                Delete Group
+                            </Button>
+                        )}
                         <Button onClick={() => setShowAddMemberModal(true)} variant="secondary" icon={Plus}>
                             Add Member
                         </Button>

@@ -9,6 +9,7 @@ import {
     getDoc,
     getDocs,
     updateDoc,
+    deleteDoc,
     serverTimestamp,
 } from 'firebase/firestore';
 import { db, appId } from '../firebase';
@@ -210,4 +211,17 @@ export const joinGroupByCode = async (inviteCode, userProfile) => {
     const groupDoc = snapshot.docs[0];
     await addMemberToGroup(groupDoc.id, userProfile);
     return { id: groupDoc.id, ...groupDoc.data() };
+};
+
+export const deleteGroup = async (groupId) => {
+    const groupRef = doc(db, 'artifacts', appId, 'groups', groupId);
+    await deleteDoc(groupRef);
+
+    // Also delete all shared courses associated with this group
+    const coursesRef = collection(db, 'artifacts', appId, 'groupSharedCourses');
+    const q = query(coursesRef, where('groupId', '==', groupId));
+    const snapshot = await getDocs(q);
+
+    const deletePromises = snapshot.docs.map(d => deleteDoc(d.ref));
+    await Promise.all(deletePromises);
 };
