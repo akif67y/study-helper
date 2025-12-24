@@ -1,6 +1,9 @@
 # DevStudy 📚
 
 A beautiful, dark-themed study companion app built with React and Firebase. Organize your learning materials, track problems, and store solutions — all in one place.
+I built it for a genuine need of problem tracker tool for my DSA and Database Lab exam preparation. I used to solve problems here and there from different platform 
+through the week.However, when I needed to review before online exam, finding them again was a big hassle. This project solves this effictively.
+
 
 ![DevStudy](https://img.shields.io/badge/React-19.2-61DAFB?style=flat&logo=react)
 ![Firebase](https://img.shields.io/badge/Firebase-12.6-FFCA28?style=flat&logo=firebase)
@@ -128,17 +131,6 @@ study-helper/
 
 ## 🎨 Design System
 
-### Color Palette
-
-| Color | Hex | Usage |
-|-------|-----|-------|
-| Background | `#14181c` | Main background |
-| Secondary | `#1c2228` | Cards, modals |
-| Tertiary | `#2c3440` | Hover states |
-| Accent | `#00e054` | Primary actions |
-| Text | `#99aabb` | Body text |
-| Muted | `#678` | Secondary text |
-
 ### Typography
 - **Font**: DM Sans
 - **Weights**: 400, 500, 600, 700
@@ -152,15 +144,6 @@ study-helper/
 - **Icons**: Lucide React
 - **Styling**: Vanilla CSS with CSS Variables
 
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
 
 ## 📄 License
 
@@ -173,7 +156,3 @@ This project is open source and available under the [MIT License](LICENSE).
 - Font by [Google Fonts](https://fonts.google.com/specimen/DM+Sans)
 
 ---
-
-<p align="center">
-  Made with ❤️ for students everywhere
-</p>
