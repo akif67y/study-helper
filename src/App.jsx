@@ -451,10 +451,14 @@ const useGroupSharedCourses = (groupId) => {
 const createGroup = async (name, members, creatorProfile) => {
   const groupsRef = collection(db, 'artifacts', appId, 'groups');
   const now = new Date();
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let inviteCode = '';
+  for (let i = 0; i < 6; i++) inviteCode += chars.charAt(Math.floor(Math.random() * chars.length));
   const groupDoc = await addDoc(groupsRef, {
     name: name.trim(),
     creatorId: creatorProfile.userId,
     creatorUsername: creatorProfile.username,
+    inviteCode,
     members: members.map(m => ({
       userId: m.userId,
       username: m.username,
@@ -511,6 +515,48 @@ const getSharedCourseProblems = async (userId, courseId) => {
   }
 
   return allProblems;
+};
+
+const addMemberToGroup = async (groupId, userProfile) => {
+  const groupRef = doc(db, 'artifacts', appId, 'groups', groupId);
+  const groupSnap = await getDoc(groupRef);
+
+  if (groupSnap.exists()) {
+    const groupData = groupSnap.data();
+    const isMember = groupData.members?.some(m => m.userId === userProfile.userId);
+
+    if (isMember) {
+      throw new Error('User is already a member');
+    }
+
+    const updatedMembers = [
+      ...(groupData.members || []),
+      {
+        userId: userProfile.userId,
+        username: userProfile.username,
+        email: userProfile.email,
+        joinedAt: new Date()
+      }
+    ];
+
+    await updateDoc(groupRef, { members: updatedMembers });
+  } else {
+    throw new Error('Group not found');
+  }
+};
+
+const joinGroupByCode = async (inviteCode, userProfile) => {
+  const groupsRef = collection(db, 'artifacts', appId, 'groups');
+  const q = query(groupsRef, where('inviteCode', '==', inviteCode.toUpperCase()));
+  const snapshot = await getDocs(q);
+
+  if (snapshot.empty) {
+    throw new Error('Invalid invite code');
+  }
+
+  const groupDoc = snapshot.docs[0];
+  await addMemberToGroup(groupDoc.id, userProfile);
+  return { id: groupDoc.id, ...groupDoc.data() };
 };
 
 /* ===================================================================
@@ -1452,7 +1498,27 @@ const GroupsPage = ({ user, logout }) => {
   const unreadCount = useUnreadShareCount(user);
   const { groups, loading } = useUserGroups(user);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [inviteCode, setInviteCode] = useState('');
+  const [joining, setJoining] = useState(false);
+  const [joinError, setJoinError] = useState('');
   const navigate = useNavigate();
+
+  const handleJoinGroup = async () => {
+    if (!inviteCode.trim()) return;
+    setJoining(true);
+    setJoinError('');
+    try {
+      const group = await joinGroupByCode(inviteCode.trim(), userProfile);
+      setShowJoinModal(false);
+      setInviteCode('');
+      navigate(`/groups/${group.id}`);
+    } catch (error) {
+      setJoinError(error.message);
+    } finally {
+      setJoining(false);
+    }
+  };
 
   return (
     <div className="min-h-screen">
@@ -1464,9 +1530,14 @@ const GroupsPage = ({ user, logout }) => {
         backLink="/"
         backText="Back to Courses"
         rightContent={
-          <Button onClick={() => setShowCreateModal(true)} icon={Plus}>
-            Create Group
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={() => setShowJoinModal(true)} variant="secondary">
+              Join Group
+            </Button>
+            <Button onClick={() => setShowCreateModal(true)} icon={Plus}>
+              Create Group
+            </Button>
+          </div>
         }
       />
 
@@ -1512,11 +1583,59 @@ const GroupsPage = ({ user, logout }) => {
       </div>
 
       {userProfile && (
-        <CreateGroupModal
-          isOpen={showCreateModal}
-          onClose={() => setShowCreateModal(false)}
-          userProfile={userProfile}
-        />
+        <>
+          <CreateGroupModal
+            isOpen={showCreateModal}
+            onClose={() => setShowCreateModal(false)}
+            userProfile={userProfile}
+          />
+
+          <Modal
+            isOpen={showJoinModal}
+            onClose={() => {
+              setShowJoinModal(false);
+              setInviteCode('');
+              setJoinError('');
+            }}
+            title="Join Group"
+          >
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-[#99aabb] mb-1.5">
+                  Invite Code
+                </label>
+                <input
+                  type="text"
+                  className="input uppercase"
+                  placeholder="Enter 6-character code"
+                  value={inviteCode}
+                  onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                  maxLength={6}
+                  autoFocus
+                />
+                {joinError && (
+                  <p className="text-red-400 text-sm mt-1">{joinError}</p>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <Button variant="ghost" onClick={() => {
+                  setShowJoinModal(false);
+                  setInviteCode('');
+                  setJoinError('');
+                }}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleJoinGroup}
+                  disabled={inviteCode.length !== 6 || joining}
+                >
+                  {joining ? 'Joining...' : 'Join Group'}
+                </Button>
+              </div>
+            </div>
+          </Modal>
+        </>
       )}
     </div>
   );
@@ -1534,6 +1653,24 @@ const GroupDetailPage = ({ user, logout }) => {
   const [showShareModal, setShowShareModal] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [sharing, setSharing] = useState(false);
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [memberSearchQuery, setMemberSearchQuery] = useState('');
+  const [addingMember, setAddingMember] = useState(false);
+
+  const { results: searchResults, loading: searchLoading } = useUserSearch(memberSearchQuery);
+
+  const handleAddMemberClick = async (user) => {
+    setAddingMember(true);
+    try {
+      await addMemberToGroup(groupId, user);
+      setMemberSearchQuery('');
+      setShowAddMemberModal(false);
+    } catch (error) {
+      alert(error.message);
+    } finally {
+      setAddingMember(false);
+    }
+  };
 
   const handleShareCourse = async () => {
     if (!selectedCourse || !userProfile) return;
@@ -1569,11 +1706,38 @@ const GroupDetailPage = ({ user, logout }) => {
         backLink="/groups"
         backText="Back to Groups"
         rightContent={
-          <Button onClick={() => setShowShareModal(true)} icon={Share2}>
-            Share Course
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={() => setShowAddMemberModal(true)} variant="secondary" icon={Plus}>
+              Add Member
+            </Button>
+            <Button onClick={() => setShowShareModal(true)} icon={Share2}>
+              Share Course
+            </Button>
+          </div>
         }
       />
+
+      <div className="max-w-5xl mx-auto px-6 py-4">
+        <div className="bg-[#242c34] rounded-lg p-4 flex items-center justify-between">
+          <div>
+            <span className="text-xs text-[#678] block mb-1">Invite Code</span>
+            <span className="text-2xl font-mono font-bold text-white tracking-wider">
+              {group?.inviteCode || 'N/A'}
+            </span>
+          </div>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              if (group?.inviteCode) {
+                navigator.clipboard.writeText(group.inviteCode);
+                alert('Invite code copied!');
+              }
+            }}
+          >
+            Copy Code
+          </Button>
+        </div>
+      </div>
 
       <div className="max-w-5xl mx-auto px-6 py-8">
         {coursesLoading ? (
@@ -1651,6 +1815,67 @@ const GroupDetailPage = ({ user, logout }) => {
               icon={Share2}
             >
               {sharing ? 'Sharing...' : 'Share to Group'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Add Member Modal */}
+      <Modal
+        isOpen={showAddMemberModal}
+        onClose={() => {
+          setShowAddMemberModal(false);
+          setMemberSearchQuery('');
+        }}
+        title="Add Member to Group"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-[#99aabb] mb-1.5">
+              Search for users
+            </label>
+            <div className="relative mb-2">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#456]" />
+              <input
+                type="text"
+                className="input pl-10"
+                placeholder="Search by username or email..."
+                value={memberSearchQuery}
+                onChange={(e) => setMemberSearchQuery(e.target.value)}
+              />
+            </div>
+
+            {memberSearchQuery.length >= 2 && (
+              <div className="max-h-64 overflow-y-auto space-y-2">
+                {searchLoading ? (
+                  <div className="text-center py-2 text-[#456] text-sm">Searching...</div>
+                ) : searchResults.length === 0 ? (
+                  <div className="text-center py-2 text-[#456] text-sm">No users found</div>
+                ) : (
+                  searchResults
+                    .filter(u => !group?.members?.some(m => m.userId === u.userId))
+                    .map(user => (
+                      <button
+                        key={user.id}
+                        onClick={() => handleAddMemberClick(user)}
+                        disabled={addingMember}
+                        className="w-full text-left p-3 rounded-lg bg-[#242c34] border border-[#2c3440] text-[#99aabb] hover:border-[#456] transition-all disabled:opacity-50"
+                      >
+                        <div className="font-medium">{user.username}</div>
+                        <div className="text-xs opacity-70">{user.email}</div>
+                      </button>
+                    ))
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end">
+            <Button variant="ghost" onClick={() => {
+              setShowAddMemberModal(false);
+              setMemberSearchQuery('');
+            }}>
+              Close
             </Button>
           </div>
         </div>
